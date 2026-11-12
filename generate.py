@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Generates a Minecraft-style voxel CD: cd_disc.vox, cd_disc.obj/.mtl and preview.png.
+"""Generates Minecraft-style voxel models as <name>.vox, <name>.obj/.mtl and <name>.png.
 
 Pure standard library. Axes follow MagicaVoxel: x right, y depth, z up.
-The disc stands upright: y=0 is the shiny data side, y=1 is the label side.
 """
 import math
 import struct
@@ -10,7 +9,10 @@ import zlib
 from pathlib import Path
 
 OUT = Path(__file__).parent
-SIZE = (32, 2, 32)
+
+# --- CD disc: stands upright, y=0 is the shiny data side, y=1 is the label side ---
+
+DISC_SIZE = (32, 2, 32)
 CENTER = 15.5  # between voxels, so the disc is symmetric at an even diameter
 
 HUB = (200, 210, 222)
@@ -47,10 +49,10 @@ def label_side(x, z):
     return LABEL
 
 
-def build():
+def build_disc():
     voxels = {}
-    for x in range(SIZE[0]):
-        for z in range(SIZE[2]):
+    for x in range(DISC_SIZE[0]):
+        for z in range(DISC_SIZE[2]):
             dx, dz = x - CENTER, z - CENTER
             d = math.hypot(dx, dz)
             if d < 2.0 or d >= 16.0:
@@ -65,8 +67,80 @@ def build():
                 front, back = data_side(dx, dz), label_side(x, z)
             voxels[(x, 0, z)] = front
             voxels[(x, 1, z)] = back
-    return voxels
+    return voxels, DISC_SIZE
 
+
+# --- Whitesnake's pistol: side profile extruded along y, barrel points to +x ---
+
+PISTOL_DEPTH = 6
+PISTOL_PROFILE = [  # top row first
+    "....ii..........................i...",
+    "..ssssssssssssssssssssssssssssssssss",
+    "HHSSrSrSrSSSSSSSSeeeeeeSSSSSSSSSSSSS",
+    ".HSSrSrSrSSSSSSSSeeeeeeSSSSSSSSSSSSB",
+    "..SSrSrSrSSSSSSSSSSSSSSSSSSSSSSSSSSB",
+    "..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "..FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF..",
+    "..FFFFFFFFFFFFFFFFFpppFFFFFFFFFF....",
+    "...FFFFFFFFFFFFFFFFFFFFFF...........",
+    "...FGGGGGGGGFF..TT.....tt...........",
+    "...FGGGGGGGGFF...T......t...........",
+    "...FGGGGGGGGFF...TT.....t...........",
+    "..FGGGGGGGGFF..........tt...........",
+    "..FGGGGGGGGFFttttttttttt............",
+    "..FGGGGGGGGFF.......................",
+    ".FGGGGGGGGFF........................",
+    ".FGGGGpGGGFF........................",
+    ".FGGGGGGGGFF........................",
+    "FGGGGGGGGFF.........................",
+    "FGGGGGGGGFF.........................",
+    "FGGGGGGGGFF.........................",
+    "FFFFFFFFFFF.........................",
+    "MMMMMMMMMMMM........................",
+]
+BORE = (14, 15, 18)
+GRIP = [(74, 50, 38), (56, 37, 29)]
+SLIDE = (62, 67, 78)
+# Part -> (color, first y, end y). Grip panels and screws stick out past the frame.
+PISTOL_PARTS = {
+    "S": (SLIDE, 1, 5),
+    "s": ((92, 98, 112), 1, 5),
+    "r": ((38, 41, 50), 1, 5),
+    "e": ((150, 156, 168), 1, 5),
+    "B": (SLIDE, 1, 5),
+    "F": ((40, 42, 50), 1, 5),
+    "M": ((26, 27, 32), 1, 5),
+    "p": ((132, 138, 150), 0, 6),
+    "G": (GRIP[0], 0, 6),
+    "H": ((84, 88, 98), 2, 4),
+    "i": ((24, 25, 30), 2, 4),
+    "T": ((112, 117, 128), 2, 4),
+    "t": ((40, 42, 50), 2, 4),
+}
+
+
+def build_pistol():
+    width = len(PISTOL_PROFILE[0])
+    assert all(len(row) == width for row in PISTOL_PROFILE)
+    height = len(PISTOL_PROFILE)
+    voxels = {}
+    for i, row in enumerate(PISTOL_PROFILE):
+        z = height - 1 - i
+        for x, part in enumerate(row):
+            if part == ".":
+                continue
+            color, y0, y1 = PISTOL_PARTS[part]
+            for y in range(y0, y1):
+                c = color
+                if part == "G":
+                    c = GRIP[z % 2]  # striped grip texture
+                elif part == "B" and y in (2, 3):
+                    c = BORE
+                voxels[(x, y, z)] = c
+    return voxels, (width, PISTOL_DEPTH, height)
+
+
+# --- Export ---
 
 # Normal -> quad corners, counter-clockwise when seen from outside.
 FACES = {
@@ -87,7 +161,7 @@ def exposed_faces(voxels):
                 yield n, [(x + a, y + b, z + c) for a, b, c in corners], color
 
 
-def write_vox(voxels, path):
+def write_vox(voxels, size, path):
     palette = sorted(set(voxels.values()))
     index = {c: i + 1 for i, c in enumerate(palette)}  # index 0 means empty
 
@@ -98,15 +172,15 @@ def write_vox(voxels, path):
         struct.pack("<4B", x, y, z, index[c]) for (x, y, z), c in sorted(voxels.items())
     )
     rgba = b"".join(struct.pack("<4B", *c, 255) for c in palette).ljust(1024, b"\0")
-    children = chunk(b"SIZE", struct.pack("<3i", *SIZE)) + chunk(b"XYZI", xyzi) + chunk(b"RGBA", rgba)
+    children = chunk(b"SIZE", struct.pack("<3i", *size)) + chunk(b"XYZI", xyzi) + chunk(b"RGBA", rgba)
     path.write_bytes(b"VOX " + struct.pack("<i", 150) + chunk(b"MAIN", b"", children))
 
 
-def write_obj(voxels, obj_path, mtl_path):
+def write_obj(voxels, size, name, obj_path, mtl_path):
     palette = sorted(set(voxels.values()))
-    name = {c: f"color_{i:02d}" for i, c in enumerate(palette)}
+    mat = {c: f"color_{i:02d}" for i, c in enumerate(palette)}
     mtl_path.write_text("".join(
-        f"newmtl {name[c]}\nKd {c[0] / 255:.4f} {c[1] / 255:.4f} {c[2] / 255:.4f}\n\n" for c in palette
+        f"newmtl {mat[c]}\nKd {c[0] / 255:.4f} {c[1] / 255:.4f} {c[2] / 255:.4f}\n\n" for c in palette
     ))
 
     verts, by_color = {}, {}
@@ -114,20 +188,22 @@ def write_obj(voxels, obj_path, mtl_path):
         ids = [verts.setdefault(p, len(verts) + 1) for p in corners]
         by_color.setdefault(color, []).append(ids)
 
-    lines = [f"mtllib {mtl_path.name}", "o cd_disc"]
+    lines = [f"mtllib {mtl_path.name}", f"o {name}"]
     # Centered at the origin and rotated to the usual Y-up convention.
-    lines += [f"v {x - 16} {z - 16} {1 - y}" for x, y, z in verts]
+    sx, sy, sz = size
+    lines += [f"v {x - sx / 2:g} {z - sz / 2:g} {sy / 2 - y:g}" for x, y, z in verts]
     for color in palette:
-        lines.append(f"usemtl {name[color]}")
+        lines.append(f"usemtl {mat[color]}")
         lines += ["f " + " ".join(map(str, ids)) for ids in by_color[color]]
     obj_path.write_text("\n".join(lines) + "\n")
 
 
-def render(voxels, path, width=1200, height=640, scale=15, bg=(34, 36, 48)):
-    """Orthographic painter's-algorithm render: data side on the left, label side on the right."""
+def render(voxels, size, path, width=1200, height=640, scale=15, bg=(34, 36, 48)):
+    """Orthographic painter's-algorithm render of both sides, one per half of the image."""
     rows = [bytearray(bytes(bg) * width) for _ in range(height)]
     shade = {(0, 1, 0): 1.0, (0, -1, 0): 1.0, (0, 0, 1): 1.1, (0, 0, -1): 0.55}
     faces = list(exposed_faces(voxels))
+    cx, cy, cz = (s / 2 for s in size)
 
     def fill(points, color):
         ys = [p[1] for p in points]
@@ -158,7 +234,7 @@ def render(voxels, path, width=1200, height=640, scale=15, bg=(34, 36, 48)):
         for n, corners, color in faces:
             if dot(n, forward) >= 0:
                 continue
-            pts = [(x - 16, y - 1, z - 16) for x, y, z in corners]
+            pts = [(x - cx, y - cy, z - cz) for x, y, z in corners]
             depth = sum(dot(p, forward) for p in pts) / 4
             poly = [(origin_x + dot(p, right) * scale, height / 2 - dot(p, up) * scale) for p in pts]
             k = shade.get(n, 0.7)
@@ -179,9 +255,16 @@ def render(voxels, path, width=1200, height=640, scale=15, bg=(34, 36, 48)):
     )
 
 
+# Name -> (builder, render options)
+MODELS = {
+    "cd_disc": (build_disc, {}),
+    "whitesnake_pistol": (build_pistol, {"scale": 14, "bg": (204, 210, 220)}),
+}
+
 if __name__ == "__main__":
-    model = build()
-    write_vox(model, OUT / "cd_disc.vox")
-    write_obj(model, OUT / "cd_disc.obj", OUT / "cd_disc.mtl")
-    render(model, OUT / "preview.png")
-    print(f"{len(model)} voxels, {len(set(model.values()))} colors")
+    for name, (build, render_options) in MODELS.items():
+        model, size = build()
+        write_vox(model, size, OUT / f"{name}.vox")
+        write_obj(model, size, name, OUT / f"{name}.obj", OUT / f"{name}.mtl")
+        render(model, size, OUT / f"{name}.png", **render_options)
+        print(f"{name}: {'x'.join(map(str, size))}, {len(model)} voxels, {len(set(model.values()))} colors")
