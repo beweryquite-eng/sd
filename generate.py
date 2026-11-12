@@ -70,53 +70,74 @@ def build_disc():
     return voxels, DISC_SIZE
 
 
-# --- Whitesnake's pistol: side profile extruded along y, barrel points to +x ---
+# --- Whitesnake's pistol, modelled on the New Nambu M57A (1 voxel is about 4 mm) ---
+# Left-side profile extruded along y; the muzzle points to -x and y=0 is the gun's left side.
 
-PISTOL_DEPTH = 6
+PISTOL_DEPTH = 8
 PISTOL_PROFILE = [  # top row first
-    "....ii..........................i...",
-    "..ssssssssssssssssssssssssssssssssss",
-    "HHSSrSrSrSSSSSSSSeeeeeeSSSSSSSSSSSSS",
-    ".HSSrSrSrSSSSSSSSeeeeeeSSSSSSSSSSSSB",
-    "..SSrSrSrSSSSSSSSSSSSSSSSSSSSSSSSSSB",
-    "..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
-    "..FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF..",
-    "..FFFFFFFFFFFFFFFFFpppFFFFFFFFFF....",
-    "...FFFFFFFFFFFFFFFFFFFFFF...........",
-    "...FGGGGGGGGFF..TT.....tt...........",
-    "...FGGGGGGGGFF...T......t...........",
-    "...FGGGGGGGGFF...TT.....t...........",
-    "..FGGGGGGGGFF..........tt...........",
-    "..FGGGGGGGGFFttttttttttt............",
-    "..FGGGGGGGGFF.......................",
-    ".FGGGGGGGGFF........................",
-    ".FGGGGpGGGFF........................",
-    ".FGGGGGGGGFF........................",
-    "FGGGGGGGGFF.........................",
-    "FGGGGGGGGFF.........................",
-    "FGGGGGGGGFF.........................",
-    "FFFFFFFFFFF.........................",
-    "MMMMMMMMMMMM........................",
+    "..ii..................................ii........",
+    "sssssssssssssssssssssssssssssssssssssssssss.....",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSrSrSrSrSSSSSSHH..",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSrSrSrSrSSSSSSHH..",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSrSrSrSrSSSSSSH...",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSrSrSrSrSSSSSSH...",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSrSrSrSrSSSSSSH...",
+    "SSSSSSSSSFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...",
+    "SSSSSSSSSFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.",
+    ".........FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.",
+    ".....................t......T.FgggggggggggggFF..",
+    ".....................t......T.FggggggggggggF....",
+    ".....................t......T.FgggggggggggF.....",
+    ".....................t......T.FGGGGGGGGGGGF.....",
+    ".....................tt........FGGGGGGGGGGGF....",
+    "......................tt.......FGGGGGGGGGGGF....",
+    ".......................ttttttttFGGGGGGGGGGGF....",
+    "...............................FGGGGGGGGGGGF....",
+    "................................FGGGGGGGGGGGF...",
+    "................................FGGGGGGGGGGGF...",
+    "................................FGGGGGGGGpGGF...",
+    "................................FGGGGGGGGGGGF...",
+    ".................................FGGGGGGGGGGGF..",
+    ".................................FGGGGGGGGGGGF..",
+    ".................................FGGGGGGGGGGGF..",
+    ".................................FGGGGGGGGGGGF..",
+    "..................................FGGGGGGGGGGGF.",
+    "..................................FGGGGGGGGGGGF.",
+    "..................................FGGGGGGGGGGGF.",
+    "..................................FGGGGGGGGGGpF.",
+    "...................................FGGGGGGGGGGGF",
+    "...................................FGGGGGGGGGGGF",
+    "...................................MMMMMMMMMMMMM",
 ]
-BORE = (14, 15, 18)
-GRIP = [(74, 50, 38), (56, 37, 29)]
-SLIDE = (62, 67, 78)
-# Part -> (color, first y, end y). Grip panels and screws stick out past the frame.
+SLIDE = (60, 63, 71)
+FRAME = (46, 48, 55)
+GRIP = [(27, 28, 33), (41, 43, 50)]  # checkering
+CONTROL = (84, 88, 97)
+# Part -> (color, first y, end y). Grip panels stick out past the frame on both sides.
 PISTOL_PARTS = {
-    "S": (SLIDE, 1, 5),
-    "s": ((92, 98, 112), 1, 5),
-    "r": ((38, 41, 50), 1, 5),
-    "e": ((150, 156, 168), 1, 5),
-    "B": (SLIDE, 1, 5),
-    "F": ((40, 42, 50), 1, 5),
-    "M": ((26, 27, 32), 1, 5),
-    "p": ((132, 138, 150), 0, 6),
-    "G": (GRIP[0], 0, 6),
-    "H": ((84, 88, 98), 2, 4),
-    "i": ((24, 25, 30), 2, 4),
-    "T": ((112, 117, 128), 2, 4),
-    "t": ((40, 42, 50), 2, 4),
+    "S": (SLIDE, 1, 7),
+    "s": ((78, 82, 91), 1, 7),
+    "r": ((30, 32, 37), 1, 7),
+    "F": (FRAME, 1, 7),
+    "M": ((28, 29, 34), 1, 7),
+    "G": (GRIP[0], 0, 8),
+    "g": ((34, 36, 42), 0, 8),
+    "p": ((98, 102, 111), 0, 8),
+    "t": (FRAME, 2, 6),
+    "T": ((72, 76, 85), 3, 5),
+    "H": ((88, 92, 101), 3, 5),
+    "i": ((20, 21, 25), 3, 5),
 }
+# One-sided details: (color, columns, ys, profile rows), all ranges inclusive.
+PISTOL_DETAILS = [
+    (CONTROL, (23, 28), (0, 0), (7, 7)),  # slide stop
+    (CONTROL, (40, 43), (0, 0), (7, 7)),  # thumb safety
+    (CONTROL, (29, 29), (0, 0), (9, 9)),  # magazine release
+    ((104, 108, 117), (24, 29), (6, 6), (1, 3)),  # ejection port, right side
+    ((104, 108, 117), (24, 29), (5, 5), (1, 1)),
+    ((10, 10, 12), (0, 0), (3, 4), (3, 4)),  # bore
+    (CONTROL, (0, 0), (3, 4), (6, 7)),  # recoil spring plug
+]
 
 
 def build_pistol():
@@ -124,19 +145,19 @@ def build_pistol():
     assert all(len(row) == width for row in PISTOL_PROFILE)
     height = len(PISTOL_PROFILE)
     voxels = {}
-    for i, row in enumerate(PISTOL_PROFILE):
-        z = height - 1 - i
-        for x, part in enumerate(row):
+    for row, line in enumerate(PISTOL_PROFILE):
+        z = height - 1 - row
+        for x, part in enumerate(line):
             if part == ".":
                 continue
             color, y0, y1 = PISTOL_PARTS[part]
             for y in range(y0, y1):
-                c = color
-                if part == "G":
-                    c = GRIP[z % 2]  # striped grip texture
-                elif part == "B" and y in (2, 3):
-                    c = BORE
-                voxels[(x, y, z)] = c
+                voxels[(x, y, z)] = GRIP[(x + z) % 2] if part == "G" else color
+    for color, (x0, x1), (y0, y1), (r0, r1) in PISTOL_DETAILS:
+        for x in range(x0, x1 + 1):
+            for y in range(y0, y1 + 1):
+                for row in range(r0, r1 + 1):
+                    voxels[(x, y, height - 1 - row)] = color
     return voxels, (width, PISTOL_DEPTH, height)
 
 
@@ -258,7 +279,7 @@ def render(voxels, size, path, width=1200, height=640, scale=15, bg=(34, 36, 48)
 # Name -> (builder, render options)
 MODELS = {
     "cd_disc": (build_disc, {}),
-    "whitesnake_pistol": (build_pistol, {"scale": 14, "bg": (204, 210, 220)}),
+    "whitesnake_pistol": (build_pistol, {"scale": 11, "bg": (204, 210, 220)}),
 }
 
 if __name__ == "__main__":
